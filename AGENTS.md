@@ -1,5 +1,10 @@
 # Crane AI Development Guidelines
 
+> **Fullsend pilot sandbox.** This is not upstream Crane. It is a disposable
+> copy of `migtools/crane` used to evaluate Fullsend agents. Read `PILOT.md`
+> before acting: do not merge to `main`, do not touch protected paths, and do
+> not open pull requests against any other repository.
+
 ## Project Context
 
 Crane is a Kubernetes migration tool that helps migrate workloads between clusters. It follows Unix philosophy: small, focused tools assembled in powerful ways.

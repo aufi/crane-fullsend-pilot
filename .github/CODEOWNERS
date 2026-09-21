@@ -1,0 +1,7 @@
+# Pilot configuration. Changes here require human review; Fullsend Apps must
+# not have bypass permission. See PILOT.md.
+/.github/workflows/ @aufi
+/.github/CODEOWNERS @aufi
+/.fullsend/ @aufi
+/AGENTS.md @aufi
+/PILOT.md @aufi
