@@ -1,5 +1,8 @@
 name: Go build and unit tests
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 jobs:
   build:
     name: Build and unit test
