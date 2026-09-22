@@ -43,3 +43,5 @@ Rules that apply to every agent run here:
 
 When the pilot ends, delete this repository. Follow section 13 of the runbook
 to remove the GitHub Apps, secrets, and WIF access first.
+
+<!-- merge gate verification -->
