@@ -101,7 +101,7 @@ runs:
       shell: bash
       run: go build -o crane .
 
-    - name: Install OpenShiftPlugin
+    - name: Install OpenShiftPlugin for plugin-gated tests
       shell: bash
       run: |
         mkdir -p "${{ github.workspace }}/plugins"
