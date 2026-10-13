@@ -101,6 +101,13 @@ runs:
       shell: bash
       run: go build -o crane .
 
+    - name: Install OpenShiftPlugin for plugin-gated tests
+      shell: bash
+      run: |
+        # Keep plugin installation isolated from the runner's default directory.
+        mkdir -p "${{ github.workspace }}/plugins"
+        ./crane plugin-manager add OpenShiftPlugin --plugin-dir "${{ github.workspace }}/plugins"
+
     - name: Run crane e2e tests
       shell: bash
       run: |
@@ -111,6 +118,7 @@ runs:
           --target-context="${{ inputs.target_context }}"
           --source-nonadmin-context="${{ inputs.source_nonadmin_context }}"
           --target-nonadmin-context="${{ inputs.target_nonadmin_context }}"
+          --plugin-dir="${{ github.workspace }}/plugins"
         )
 
         if [ "${{ inputs.verbose_logs }}" = "true" ]; then
