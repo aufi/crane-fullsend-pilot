@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -18,10 +19,6 @@ import (
 
 var _ = Describe("OpenShift DeploymentConfig conversion", func() {
 	It("converts a DeploymentConfig into a target-compatible Deployment", Label("tier1", "plugin"), func() {
-		if config.PluginDir == "" {
-			Skip("requires --plugin-dir containing the OpenShiftPlugin build")
-		}
-
 		const namespace = "deploymentconfig-conversion"
 		paths, err := NewScenarioPaths("crane-deploymentconfig-conversion-*")
 		Expect(err).NotTo(HaveOccurred())
@@ -39,12 +36,24 @@ var _ = Describe("OpenShift DeploymentConfig conversion", func() {
 		exportDir, err := utils.TestdataFilePath("deploymentconfig-conversion/export")
 		Expect(err).NotTo(HaveOccurred())
 
+		pluginDir := config.PluginDir
+		if pluginDir == "" {
+			By("Install OpenShiftPlugin into the scenario's temporary directory")
+			pluginDir = filepath.Join(paths.TempDir, "plugins")
+			Expect(os.MkdirAll(pluginDir, 0o755)).To(Succeed())
+			installOut, err := exec.Command(config.CraneBin, "plugin-manager", "add", "OpenShiftPlugin", "--plugin-dir", pluginDir).CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "failed to install OpenShiftPlugin: %s", string(installOut))
+		}
+		pluginInfo, err := os.Stat(filepath.Join(pluginDir, "OpenShiftPlugin"))
+		Expect(err).NotTo(HaveOccurred(), "OpenShiftPlugin was not installed in %q", pluginDir)
+		Expect(pluginInfo.Mode()&0o111).NotTo(BeZero(), "OpenShiftPlugin in %q is not executable", pluginDir)
+
 		By("Transform the DeploymentConfig with the OpenShiftPlugin")
 		runner := CraneRunner{Bin: config.CraneBin, WorkDir: paths.TempDir}
 		Expect(runner.Transform(TransformOptions{
 			ExportDir:     exportDir,
 			TransformDir:  paths.TransformDir,
-			PluginDir:     config.PluginDir,
+			PluginDir:     pluginDir,
 			OptionalFlags: `{"pvc-rename-map":"legacy-data:migrated-data"}`,
 		})).To(Succeed())
 		Expect(runner.Apply(ApplyOptions{
