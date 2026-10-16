@@ -1,12 +1,21 @@
 # Testing Guide
 
-## Unit Tests
+## Cluster-free checks
 
 ### Running Tests
 
 ```bash
-# All tests
-go test ./...
+# Build all packages and write ./crane
+make build
+
+# All cluster-independent unit packages
+make test-unit
+
+# Compile all E2E test packages, without running specs
+make test-e2e-compile
+
+# Check tracked Go files without rewriting them
+make fmt-check
 
 # Specific package
 go test ./internal/transform/...
@@ -14,10 +23,16 @@ go test ./internal/transform/...
 # Verbose output
 go test -v ./internal/validate/...
 
-# With coverage
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
+# Verbose output and atomic coverage, as used by CI
+make test-unit GO_TEST_ARGS=-v COVERAGE_PROFILE=coverage.out COVERAGE_MODE=atomic
+go tool cover -func=coverage.out
 ```
+
+The package list for `make test-unit` comes from `go list ./...` and excludes
+only `e2e-tests/tests/`. It therefore includes `e2e-tests/config`,
+`e2e-tests/framework`, and `e2e-tests/utils`. A bare `go test ./...` also runs
+the Ginkgo suites under `e2e-tests/tests/`, which can require clusters and
+external test tooling, so it is not the local unit-test command.
 
 ### Test Conventions
 
@@ -76,22 +91,39 @@ E2E tests live in `e2e-tests/`:
 e2e-tests/
 ├── framework/              # Test framework (app deployment, kubectl wrappers, pipeline)
 ├── tests/                  # Test cases (mtc_XXX_*.go)
-├── golden-manifests/       # Expected output fixtures
+├── golden-manifests-ocp/   # Expected output fixtures
 └── utils/                  # Helper utilities
 ```
 
-### Running E2E Tests
+### Compiling E2E tests
+
+Compilation does not run test functions or connect to clusters:
+
+```bash
+make test-e2e-compile
+```
+
+### Running E2E tests against clusters
 
 E2E tests require running Kubernetes clusters:
 
 ```bash
-cd e2e-tests
-go test -v ./tests/...
+ginkgo run -v --recurse e2e-tests/tests -- \
+  --k8sdeploy-bin=/path/to/k8sdeploy \
+  --crane-bin=./crane \
+  --source-context=src \
+  --target-context=tgt
 ```
+
+This requires the live E2E prerequisites; compilation alone does not prove a
+cluster scenario works. The pilot checkout has no active live E2E workflow.
+Retained composite actions do not provide live E2E coverage by themselves.
 
 ### Golden Manifests
 
-The `golden-manifests/` directory contains expected export and output for known applications (e.g., `redis`, `simple-nginx-nopv`). E2E tests compare actual output against these fixtures.
+The `golden-manifests-ocp/` directory contains expected export and output for
+known applications (e.g., `redis`, `simple-nginx-nopv`). E2E tests compare
+actual output against these fixtures.
 
 ### Writing E2E Tests
 
@@ -103,8 +135,10 @@ Follow existing patterns in `e2e-tests/tests/`:
 
 ## CI
 
-- **Unit tests and build**: Run on every push via `.github/workflows/go.yml`
-- **E2E tests**: Run on push to main and on a nightly cron schedule via `.github/workflows/run-e2e-tests.yml`
+The build workflow runs the build and cluster-free unit checks. E2E packages
+are compiled separately so they remain covered even when no cluster-backed
+suite runs. This pilot checkout has no active live E2E workflow; retained
+composite actions are reusable building blocks, not scheduled coverage.
 
 ## Test Coverage
 

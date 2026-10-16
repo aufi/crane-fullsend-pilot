@@ -4,10 +4,10 @@
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Go | 1.25+ (see `go.mod`) | Building and testing |
-| kubectl | Latest stable | Deploying output to clusters; not required for `crane apply` (kustomize is embedded) |
+| Go | 1.25+ (`go.mod` is authoritative) | Building and cluster-free checks |
+| kubectl | Latest stable | Deploying rendered output and live E2E tests |
 | Docker | Latest stable | Container-based testing (optional) |
-| kind or minikube | Latest stable | Local Kubernetes clusters for E2E tests |
+| k8sdeploy and two clusters | Current project test prerequisites | Live E2E execution only |
 
 ## Getting Started
 
@@ -21,7 +21,7 @@ cd crane
 ### Build
 
 ```bash
-go build -o crane main.go
+make build
 ```
 
 ### Install Locally
@@ -39,24 +39,36 @@ sudo mv crane /usr/local/bin/
 ### Run Tests
 
 ```bash
-# All unit tests
-go test ./...
+# Cluster-independent unit tests
+make test-unit
 
 # Specific package
 go test ./internal/transform/...
 
 # With verbose output
-go test -v ./cmd/export/...
+make test-unit GO_TEST_ARGS=-v
 
-# With race detection
-go test -race ./...
+# Compile E2E packages without executing specs
+make test-e2e-compile
+
+# Check formatting without rewriting files
+make fmt-check
+
+# Unit coverage in the same mode used by CI
+make test-unit GO_TEST_ARGS=-v COVERAGE_PROFILE=coverage.out COVERAGE_MODE=atomic
+go tool cover -func=coverage.out
 ```
 
 ### Format Code
 
 ```bash
-gofmt -w .
+gofmt -w path/to/changed.go
 ```
+
+`go test ./...` includes the live suite packages under `e2e-tests/tests/` and
+is therefore not a cluster-free unit check. `make test-unit` derives its
+package list from the module and excludes only that live-suite subtree; it
+still includes `e2e-tests/config`, `e2e-tests/framework`, and `e2e-tests/utils`.
 
 ## Project Layout
 
@@ -66,7 +78,12 @@ Internal packages in `internal/` contain the business logic. Commands are thin w
 
 ## Setting Up Test Clusters
 
-For E2E testing, you need source and target Kubernetes clusters:
+Live E2E testing requires `kubectl`, `k8sdeploy`, source and target Kubernetes
+clusters, valid kubeconfig contexts, and the test images used by the selected
+scenarios. The cluster-free build and unit commands above require none of
+these tools.
+
+For local clusters:
 
 ### Using kind
 
