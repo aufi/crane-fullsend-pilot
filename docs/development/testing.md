@@ -135,9 +135,10 @@ Follow existing patterns in `e2e-tests/tests/`:
 
 ## CI
 
-The build workflow runs the build and cluster-free unit checks. E2E packages
-are compiled separately so they remain covered even when no cluster-backed
-suite runs. This pilot checkout has no active live E2E workflow; retained
+The current build workflow runs the build and its existing package-filtered
+unit check. It does not yet invoke `make test-e2e-compile` or `make fmt-check`,
+so those remain local verification commands until the protected workflow is
+updated. This pilot checkout has no active live E2E workflow; retained
 composite actions are reusable building blocks, not scheduled coverage.
 
 ## Test Coverage

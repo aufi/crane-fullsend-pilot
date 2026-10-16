@@ -9,10 +9,12 @@ Crane is a migration tool under the [Konveyor](https://www.konveyor.io/) communi
 
 ## Build and Test Status
 
-This pilot runs the Go build, cluster-free unit tests, E2E compilation, and
-format check. `golangci-lint` remains a separate lint check. It has no active
-live E2E workflow; the retained composite actions do not provide live E2E
-coverage.
+The pilot's current project CI runs the Go build and its existing
+package-filtered unit test, with `golangci-lint` as a separate lint check. It
+does not yet invoke the shared E2E compilation or format-check targets. Run
+the complete cluster-free verification locally with the commands below. The
+pilot has no active live E2E workflow; retained composite actions do not
+provide live E2E coverage.
 
 Run the same local checks with:
 
