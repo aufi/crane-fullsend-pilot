@@ -248,7 +248,7 @@ func downloadBinary(pluginDir string, filename string, url string, log *logrus.L
 	}
 	// Create dir if not exists
 	if _, err := os.Stat(pluginDir); os.IsNotExist(err) {
-		err = os.MkdirAll(pluginDir, os.ModePerm)
+		err = os.MkdirAll(pluginDir, 0755)
 		if err != nil {
 			log.Errorf("Failed to create plugin directory %s: %v", pluginDir, err)
 			return err
