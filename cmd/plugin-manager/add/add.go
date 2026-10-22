@@ -246,32 +246,13 @@ func downloadBinary(pluginDir string, filename string, url string, log *logrus.L
 		defer resp.Body.Close()
 		binaryContents = resp.Body
 	}
-	// Create dir if not exists and remove group/other write permissions from the leaf.
-	dirInfo, err := os.Stat(pluginDir)
-	if os.IsNotExist(err) {
-		if err := checkPluginDirAncestors(pluginDir); err != nil {
-			log.Errorf("Failed to secure plugin directory %s: %v", pluginDir, err)
-			return err
-		}
+	// Create dir if not exists.
+	if _, err := os.Stat(pluginDir); os.IsNotExist(err) {
 		err = os.MkdirAll(pluginDir, 0755)
 		if err != nil {
 			log.Errorf("Failed to create plugin directory %s: %v", pluginDir, err)
 			return err
 		}
-		dirInfo, err = os.Stat(pluginDir)
-	}
-	if err != nil {
-		log.Errorf("Failed to inspect plugin directory %s: %v", pluginDir, err)
-		return err
-	}
-	if err := checkPluginDirAncestors(pluginDir); err != nil {
-		log.Errorf("Failed to secure plugin directory %s: %v", pluginDir, err)
-		return err
-	}
-	dirMode := dirInfo.Mode().Perm() &^ 0022
-	if err := os.Chmod(pluginDir, dirMode); err != nil {
-		log.Errorf("Failed to secure plugin directory %s: %v", pluginDir, err)
-		return err
 	}
 
 	// Create the file
@@ -295,21 +276,6 @@ func downloadBinary(pluginDir string, filename string, url string, log *logrus.L
 	}
 	log.Infof("pluginBinary %s added to the path - %s", filename, pluginDir)
 	return err
-}
-
-func checkPluginDirAncestors(pluginDir string) error {
-	for parent := filepath.Dir(pluginDir); ; parent = filepath.Dir(parent) {
-		parentInfo, err := os.Stat(parent)
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to inspect plugin directory ancestor %q: %w", parent, err)
-		}
-		if err == nil && parentInfo.Mode().Perm()&0022 != 0 {
-			return fmt.Errorf("plugin directory ancestor %q is group/other-writable with mode %04o", parent, parentInfo.Mode().Perm())
-		}
-		if parent == filepath.Dir(parent) {
-			return nil
-		}
-	}
 }
 
 // binaryURIForPlatform returns the download URI for the current OS/arch.
