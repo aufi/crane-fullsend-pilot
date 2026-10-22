@@ -246,11 +246,24 @@ func downloadBinary(pluginDir string, filename string, url string, log *logrus.L
 		defer resp.Body.Close()
 		binaryContents = resp.Body
 	}
-	// Create dir if not exists.
-	if _, err := os.Stat(pluginDir); os.IsNotExist(err) {
+	// Create dir if not exists and remove group/other write permissions from existing dirs.
+	dirInfo, err := os.Stat(pluginDir)
+	if os.IsNotExist(err) {
 		err = os.MkdirAll(pluginDir, 0755)
 		if err != nil {
 			log.Errorf("Failed to create plugin directory %s: %v", pluginDir, err)
+			return err
+		}
+		dirInfo, err = os.Stat(pluginDir)
+	}
+	if err != nil {
+		log.Errorf("Failed to inspect plugin directory %s: %v", pluginDir, err)
+		return err
+	}
+	if dirInfo.Mode().Perm()&0022 != 0 {
+		dirMode := dirInfo.Mode().Perm() &^ 0022
+		if err := os.Chmod(pluginDir, dirMode); err != nil {
+			log.Errorf("Failed to secure plugin directory %s: %v", pluginDir, err)
 			return err
 		}
 	}
