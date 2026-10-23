@@ -49,10 +49,14 @@ The suite is built with Ginkgo/Gomega and is organized to keep scenario code rea
 
 Tests are organized into two tiers under `tests/`:
 
-- `tests/tier0/` — must-have gate tests; run on every push to main and nightly. These cover core migration scenarios that must pass before a release.
-- `tests/tier1/` — extended coverage; run nightly. These cover more advanced or environment-specific scenarios.
+- `tests/tier0/` — must-have gate tests covering core migration scenarios.
+- `tests/tier1/` — extended coverage for advanced or environment-specific scenarios.
 
-Each tier is a separate Go package with its own `e2e_suite_test.go` entrypoint. Tests are also tagged with a matching Ginkgo label (`Label("tier0")` or `Label("tier1")`) so they can be filtered independently.
+Each tier is a separate Go package with its own `e2e_suite_test.go` entrypoint.
+Tests are also tagged with a matching Ginkgo label (`Label("tier0")` or
+`Label("tier1")`) so they can be filtered independently. This pilot does not
+schedule either tier; use the explicit commands below when live prerequisites
+are available.
 
 ## How the Suite Works
 
@@ -79,6 +83,19 @@ For namespace-admin scenarios, tests additionally:
 3. Apply manifests with `ApplyOutputToTargetNonAdmin(...)` (namespace already created via RBAC setup).
 
 ## Running the Tests
+
+From the repository root, compile every E2E package without running test
+functions or connecting to a cluster:
+
+```bash
+make test-e2e-compile
+```
+
+This is separate from live execution. The pilot checkout has no active live
+E2E workflow; retained composite actions do not themselves execute tests.
+
+To run scenarios against real clusters, use the Ginkgo commands below and
+provide the required `k8sdeploy`, `kubectl`, kube contexts, and test images.
 
 Run all tiers from repo root:
 

@@ -12,15 +12,40 @@ This directory contains detailed guides for developers contributing to Crane.
 ## Quick Reference
 
 ```bash
-# Build
-go build -o crane main.go
+# Build all packages and write ./crane
+make build
 
-# Test
-go test ./...
+# Cluster-independent unit tests
+make test-unit
 
-# Lint
-gofmt -l .
+# Compile E2E tests without running them
+make test-e2e-compile
+
+# Check tracked Go formatting without rewriting files
+make fmt-check
 ```
+
+`go test ./...` is not the unit-test command here: it includes the
+cluster-backed suites under `e2e-tests/tests/`. Use `make test-unit` for local
+unit checks and `make test-e2e-compile` to verify that all E2E packages compile.
+Neither command provisions a cluster or executes a live E2E spec.
+
+For the shared project rules, see [AGENTS.md](../../AGENTS.md). Claude Code
+loads the same rules through [CLAUDE.md](../../CLAUDE.md).
+
+## Responsibility map
+
+- `cmd/` contains CLI command wiring and user-facing flag validation.
+- `internal/` contains Crane-local implementation helpers and pipeline logic.
+- `crane-lib` owns reusable transformation functionality; add shared
+  transformation behavior there rather than duplicating it in `internal/`.
+- `pvc-transfer` owns persistent-volume transfer operations used by
+  `transfer-pvc`.
+
+The pipeline is intentionally staged: `export` reads the source cluster,
+`transform` processes exported files on disk, and `crane apply` renders output
+manifests. Deployment is a separate `kubectl apply` operation. `transfer-pvc`
+creates temporary cluster resources and cleans them up as part of the transfer.
 
 ## Project Structure
 
@@ -44,7 +69,8 @@ crane/
 ├── e2e-tests/              # End-to-end tests
 │   ├── framework/          # Test framework utilities
 │   ├── tests/              # Test cases
-│   ├── golden-manifests/   # Expected output fixtures
+│   ├── config/              # Test configuration and flags
+│   ├── golden-manifests-ocp/ # Expected output fixtures
 │   └── utils/              # Test helper utilities
 └── docs/                   # Documentation
 ```

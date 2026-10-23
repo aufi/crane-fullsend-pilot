@@ -9,10 +9,21 @@ Crane is a migration tool under the [Konveyor](https://www.konveyor.io/) communi
 
 ## Build and Test Status
 
-| Branch | Build & unit tests (after merge) | E2E CI (after merge) | E2E Nightly (cron) |
-| :----- | :------------------------------- | :------------------- | :----------------- |
-| main | [![Go](https://github.com/migtools/crane/actions/workflows/go.yml/badge.svg?branch=main&event=push)](https://github.com/migtools/crane/actions/workflows/go.yml?query=branch%3Amain+event%3Apush) | [![Tier0 CI](https://github.com/migtools/crane/actions/workflows/run-e2e-tier0-tests.yml/badge.svg?branch=main&event=push)](https://github.com/migtools/crane/actions/workflows/run-e2e-tier0-tests.yml?query=branch%3Amain+event%3Apush)<br>[![Tier1 CI](https://github.com/migtools/crane/actions/workflows/run-e2e-tier1-tests.yml/badge.svg?branch=main&event=push)](https://github.com/migtools/crane/actions/workflows/run-e2e-tier1-tests.yml?query=branch%3Amain+event%3Apush) | [![Tier0 Nightly](https://github.com/migtools/crane/actions/workflows/run-e2e-tier0-tests.yml/badge.svg?branch=main&event=schedule)](https://github.com/migtools/crane/actions/workflows/run-e2e-tier0-tests.yml?query=branch%3Amain+event%3Aschedule)<br>[![Tier1 Nightly](https://github.com/migtools/crane/actions/workflows/run-e2e-tier1-tests.yml/badge.svg?branch=main&event=schedule)](https://github.com/migtools/crane/actions/workflows/run-e2e-tier1-tests.yml?query=branch%3Amain+event%3Aschedule) |
-| release-0.10 | [![Go](https://github.com/migtools/crane/actions/workflows/go.yml/badge.svg?branch=release-0.10&event=push)](https://github.com/migtools/crane/actions/workflows/go.yml?query=branch%3Arelease-0.10+event%3Apush) | [![Tier0 CI](https://github.com/migtools/crane/actions/workflows/run-e2e-tier0-tests.yml/badge.svg?branch=release-0.10&event=push)](https://github.com/migtools/crane/actions/workflows/run-e2e-tier0-tests.yml?query=branch%3Arelease-0.10+event%3Apush)<br>[![Tier1 CI](https://github.com/migtools/crane/actions/workflows/run-e2e-tier1-tests.yml/badge.svg?branch=release-0.10&event=push)](https://github.com/migtools/crane/actions/workflows/run-e2e-tier1-tests.yml?query=branch%3Arelease-0.10+event%3Apush) | [![Tier0 Nightly](https://github.com/migtools/crane/actions/workflows/nightly-release-0.10-e2e-tier0.yml/badge.svg?event=schedule)](https://github.com/migtools/crane/actions/workflows/nightly-release-0.10-e2e-tier0.yml)<br>[![Tier1 Nightly](https://github.com/migtools/crane/actions/workflows/nightly-release-0.10-e2e-tier1.yml/badge.svg?event=schedule)](https://github.com/migtools/crane/actions/workflows/nightly-release-0.10-e2e-tier1.yml) |
+The pilot's current project CI runs the Go build and its existing
+package-filtered unit test, with `golangci-lint` as a separate lint check. It
+does not yet invoke the shared E2E compilation or format-check targets. Run
+the complete cluster-free verification locally with the commands below. The
+pilot has no active live E2E workflow; retained composite actions do not
+provide live E2E coverage.
+
+Run the same local checks with:
+
+```bash
+make build
+make test-unit
+make test-e2e-compile
+make fmt-check
+```
 
 ## YouTube Demo
 [![Alt text](https://img.youtube.com/vi/PoSivlgVLf8/0.jpg)](https://www.youtube.com/watch?v=PoSivlgVLf8)
@@ -57,17 +68,17 @@ How does it work? Crane works by:
 
   * Obtain the `crane` binary from either:
     * Download a prebuilt binary from the links in the `Downloads` section above.
-    * Clone this repo and build the crane binary via: `go build -o crane main.go`
+    * Clone this repo and build the crane binary via: `make build`
   * Install the `crane` binary in your `$PATH`
 
 ## Usage Example
 1. `$ kubectl create namespace guestbook`
-1. `$ kubectl --namespace guestbook apply -k github.com/konveyor/crane-runner/examples/resources/guestbook`
-1. `$ crane export -n guestbook`
+2. `$ kubectl --namespace guestbook apply -k github.com/konveyor/crane-runner/examples/resources/guestbook`
+3. `$ crane export -n guestbook`
   * Discovers and exports all resources in the 'guestbook' namespace
   * A directory 'export/resources/guestbook' is populated with the raw YAML content of each exported resource 
   * Example:
-    * `$ cat export/resources/guestbook/Secret_guestbook_builder-dockercfg-5ztj6.yaml`
+    * `$ cat export/resources/guestbook/Secret__v1_guestbook_builder-dockercfg-5ztj6.yaml`
 
             kind: Secret
             apiVersion: v1
@@ -81,6 +92,7 @@ How does it work? Crane works by:
               .dockercfg: < ...SNIP.... >
 
 4. `$ crane transform`
+  * Reads the staged export files from disk; it does not read the source cluster.
   * A directory `transform/10_KubernetesPlugin/` is created with a Kustomize layout:
     * `input/` - Exported resources grouped by type
     * `patches/` - JSONPatch operations to clean resources
@@ -100,8 +112,8 @@ How does it work? Crane works by:
     * `$ cat transform/10_KubernetesPlugin/input/secret.yaml` - Contains the original exported Secret with all metadata
 
 5. `$ crane apply`
-  * Runs embedded kustomize on the transform stage to apply patches
-  * Outputs clean, declarative YAML to `output/output.yaml`
+  * Runs embedded kustomize on the transform stage to render clean,
+    declarative YAML to `output/output.yaml`; it does not deploy to a cluster.
   * Example:
     * `$ cat output/output.yaml`
 
@@ -115,7 +127,7 @@ How does it work? Crane works by:
               .dockercfg: < ...SNIP.... > 
 
     * Note that the fields `metadata.uid`, `metadata.resourceVersion`, and `metadata.creationTimestamp` have been removed.
-6. The content in `output/output.yaml` is now ready to be deployed to the target cluster or checked into Git for GitOps workflows:
+6. Deploy the rendered manifests separately, or check them into Git for GitOps workflows:
     * `$ kubectl apply -f output/output.yaml`
 
 ## Documentation
@@ -125,6 +137,10 @@ For comprehensive documentation, see the [docs/](docs/README.md) directory:
 - [Installation](docs/installation.md)
 - [Command Reference](docs/README.md#command-reference) — export, transform, apply, validate, transfer-pvc
 - [Contributing](CONTRIBUTING.md) | [Development Guide](docs/development/README.md)
+
+For the contributor and AI-agent entry point, read [AGENTS.md](AGENTS.md),
+[CLAUDE.md](CLAUDE.md), and the [testing guide](docs/development/testing.md).
+Operational Fullsend setup remains in the pilot runbook.
 
 ## Automated Documentation Review (`code-to-docs`)
 

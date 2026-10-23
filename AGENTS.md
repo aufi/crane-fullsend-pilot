@@ -52,8 +52,9 @@ fmt.Errorf("expected *unstructured.Unstructured but got %T", object)
 - Bug fixes should include regression tests when possible
 - Use table-driven tests for multiple scenarios
 - Test files: `*_test.go` in same package
-- Run tests: `go test ./...`
-- E2E tests live in `e2e-tests/`
+- Run cluster-free unit checks: `make test-unit`
+- Compile E2E packages without running them: `make test-e2e-compile`
+- Run live E2E suites only when their cluster prerequisites are available; they live in `e2e-tests/tests/`
 
 ### Code Organization
 - Commands in `cmd/<command>/` (apply, export, transform, etc.)
@@ -92,8 +93,10 @@ fmt.Errorf("expected *unstructured.Unstructured but got %T", object)
 - ## Test plan - how to verify
 
 **Before submitting:**
-- [ ] Code compiles: `go build ./...`
-- [ ] Tests pass: `go test ./...`
+- [ ] Code compiles: `make build`
+- [ ] Cluster-free unit tests pass: `make test-unit`
+- [ ] E2E packages compile: `make test-e2e-compile`
+- [ ] Formatting check passes: `make fmt-check`
 - [ ] Error messages are informative
 - [ ] No unnecessary refactoring
 - [ ] Backward compatible (or documented breaking change)
