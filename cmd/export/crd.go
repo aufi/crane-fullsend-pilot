@@ -171,3 +171,28 @@ func collectRelatedCRDs(requestTimeout time.Duration, resources []*groupResource
 	}
 	return out, outErrs
 }
+
+func automaticallyCollectedCRDNames(resources, collected []*groupResource) []string {
+	explicit := make(map[string]struct{})
+	for _, resource := range resources {
+		if resource == nil || resource.objects == nil || resource.APIResource.Kind != "CustomResourceDefinition" {
+			continue
+		}
+		for _, object := range resource.objects.Items {
+			explicit[object.GetName()] = struct{}{}
+		}
+	}
+
+	automaticallyCollected := make([]string, 0, len(collected))
+	for _, resource := range collected {
+		if resource == nil || resource.objects == nil {
+			continue
+		}
+		for _, object := range resource.objects.Items {
+			if _, wasExplicit := explicit[object.GetName()]; !wasExplicit {
+				automaticallyCollected = append(automaticallyCollected, object.GetName())
+			}
+		}
+	}
+	return automaticallyCollected
+}

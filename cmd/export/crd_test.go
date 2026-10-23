@@ -332,6 +332,27 @@ func TestCollectRelatedCRDs_exportsUnmanagedCRD(t *testing.T) {
 	}
 }
 
+func TestAutomaticallyCollectedCRDNames_ExcludesExplicitCRDs(t *testing.T) {
+	explicit := crdObj("widgets.example.com")
+	automaticallyCollected := crdObj("gadgets.example.com")
+
+	resources := []*groupResource{{
+		APIResource: metav1.APIResource{Kind: "CustomResourceDefinition"},
+		objects:     &unstructured.UnstructuredList{Items: []unstructured.Unstructured{explicit}},
+	}}
+	collected := []*groupResource{{
+		objects: &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
+			explicit,
+			automaticallyCollected,
+		}},
+	}}
+
+	got := automaticallyCollectedCRDNames(resources, collected)
+	if len(got) != 1 || got[0] != "gadgets.example.com" {
+		t.Fatalf("automaticallyCollectedCRDNames() = %v, want [gadgets.example.com]", got)
+	}
+}
+
 func TestCollectRelatedCRDs_timeoutError(t *testing.T) {
 	scheme := runtime.NewScheme()
 	client := fake.NewSimpleDynamicClient(scheme)
@@ -363,8 +384,8 @@ func TestCollectRelatedCRDs_timeoutError(t *testing.T) {
 
 func TestGetOperatorManager(t *testing.T) {
 	tests := []struct {
-		name     string
-		obj      *unstructured.Unstructured
+		name      string
+		obj       *unstructured.Unstructured
 		wantEmpty bool
 	}{
 		{"no labels or annotations", crdUnstructured("test"), true},

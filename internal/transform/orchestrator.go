@@ -29,15 +29,15 @@ type StageArtifact struct {
 
 // Orchestrator coordinates multi-stage transform execution
 type Orchestrator struct {
-	Log            *logrus.Logger
-	ExportDir      string
-	TransformDir   string
-	PluginDir      string
-	SkipPlugins    []string
-	OptionalFlags  map[string]string
+	Log                *logrus.Logger
+	ExportDir          string
+	TransformDir       string
+	PluginDir          string
+	SkipPlugins        []string
+	OptionalFlags      map[string]string
 	StageOptionalFlags map[string]map[string]string
-	Overwrite      bool
-	CraneVersion   string
+	Overwrite          bool
+	CraneVersion       string
 	// NewlyCreatedStages tracks stages created in this run that can be overwritten
 	// This prevents double-write errors when creating a stage and then running it
 	NewlyCreatedStages map[string]bool
@@ -122,6 +122,10 @@ func (o *Orchestrator) RunMultiStage(stageSelector StageSelector) error {
 		TransformDir: o.TransformDir,
 		ExportDir:    o.ExportDir,
 	}
+	metadata, err := file.ReadMetadata(filepath.Join(o.ExportDir, file.MetadataFilename))
+	if err != nil {
+		return err
+	}
 
 	// Execute each stage in order with sequential consistency
 	for i, stage := range selectedStages {
@@ -177,6 +181,10 @@ func (o *Orchestrator) RunMultiStage(stageSelector StageSelector) error {
 		if err := o.executeStage(stage, inputResources, allPlugins); err != nil {
 			o.Log.Debugf("Stage %s: transform execution failed: %v", stage.DirName, err)
 			return fmt.Errorf("stage %s: transform execution failed: %w", stage.DirName, err)
+		}
+		if err := file.WriteMetadata(opts.GetMetadataPath(stage.DirName), metadata); err != nil {
+			o.Log.Debugf("Stage %s: failed to write metadata: %v", stage.DirName, err)
+			return fmt.Errorf("stage %s: write metadata: %w", stage.DirName, err)
 		}
 
 		// Step 4: Apply transforms to get output resources
@@ -412,10 +420,10 @@ func (o *Orchestrator) applyStageTransforms(stageDir string) ([]unstructured.Uns
 	// Empty output means the stage has no resources to transform
 	if len(output) == 0 {
 		o.Log.Debugf("Stage directory %s produced no resources to transform", stageDir)
-		return nil, fmt.Errorf("stage produced no resources to transform.\n"+
-			"This can happen when:\n"+
-			"  - The stage received no input resources\n"+
-			"  - The plugin processed resources but produced no transformations\n"+
+		return nil, fmt.Errorf("stage produced no resources to transform.\n" +
+			"This can happen when:\n" +
+			"  - The stage received no input resources\n" +
+			"  - The plugin processed resources but produced no transformations\n" +
 			"  - A previous stage filtered out all resources")
 	}
 

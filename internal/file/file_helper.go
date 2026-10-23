@@ -40,6 +40,9 @@ func ReadFilesWithLogger(ctx context.Context, dir string, log *logrus.Logger) ([
 func readFiles(ctx context.Context, path string, files []os.FileInfo, log *logrus.Logger) ([]File, error) {
 	jsonFiles := []File{}
 	for _, file := range files {
+		if file.Name() == MetadataFilename {
+			continue
+		}
 		filePath := fmt.Sprintf("%v/%v", path, file.Name())
 		if file.IsDir() {
 			if file.Name() == "failures" {
@@ -84,17 +87,17 @@ func readFiles(ctx context.Context, path string, files []os.FileInfo, log *logru
 // Directory name constants for stage structure
 // These can be changed if different naming is preferred (e.g., "input-resources" instead of "input")
 const (
-	InputDirName        = "input"    // input resources directory within a stage
-	PatchesDirName      = "patches"  // patches directory within a stage
-	OutputDirName       = "output"   // output directory within a stage
-	NewResourcesDirName = "new"      // plugin-generated new resources directory within a stage
+	InputDirName        = "input"   // input resources directory within a stage
+	PatchesDirName      = "patches" // patches directory within a stage
+	OutputDirName       = "output"  // output directory within a stage
+	NewResourcesDirName = "new"     // plugin-generated new resources directory within a stage
 )
 
-//TODO: @shawn-hurley Add errors for these methods to validate that the correct struct values are set.
+// TODO: @shawn-hurley Add errors for these methods to validate that the correct struct values are set.
 type PathOpts struct {
-	TransformDir      string
-	ExportDir         string
-	OutputDir         string
+	TransformDir string
+	ExportDir    string
+	OutputDir    string
 }
 
 func (opts *PathOpts) GetWhiteOutFilePath(filePath string) string {
@@ -157,7 +160,7 @@ func (opts *PathOpts) GetKustomizationPath(stageName string) string {
 // GetMetadataPath returns the path to .crane-metadata.json within a stage
 // Format: <transformDir>/<stageName>/.crane-metadata.json
 func (opts *PathOpts) GetMetadataPath(stageName string) string {
-	return filepath.Join(opts.GetStageDir(stageName), ".crane-metadata.json")
+	return filepath.Join(opts.GetStageDir(stageName), MetadataFilename)
 }
 
 // GetResourceTypeFilePath returns the path to a resource type file within a stage
