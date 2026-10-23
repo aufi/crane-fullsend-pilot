@@ -3,6 +3,7 @@ package apply
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -143,5 +144,114 @@ func TestApplyMultiStageReconcilesAutomaticallyCollectedCRDs(t *testing.T) {
 				t.Error("output.yaml omitted CRD required by retained v2 Gadget")
 			}
 		})
+	}
+}
+
+func TestApplyMultiStageKeepsCRDForLaterGeneratedResource(t *testing.T) {
+	root := t.TempDir()
+	exportDir := filepath.Join(root, "export")
+	transformDir := filepath.Join(root, "transform")
+	outputDir := filepath.Join(root, "output")
+	resourcesDir := filepath.Join(exportDir, "resources", "source")
+	clusterResourcesDir := filepath.Join(resourcesDir, "_cluster")
+	if err := os.MkdirAll(clusterResourcesDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	crd := `apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gadgets.example.com
+spec:
+  group: example.com
+  names:
+    kind: Gadget
+    plural: gadgets
+`
+	configMap := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: source
+  namespace: source
+`
+	if err := os.WriteFile(filepath.Join(clusterResourcesDir, "gadgets.yaml"), []byte(crd), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(resourcesDir, "source.yaml"), []byte(configMap), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.WriteMetadata(filepath.Join(exportDir, file.MetadataFilename), &file.Metadata{
+		AutomaticallyCollectedCRDs: []string{"gadgets.example.com"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, stage := range []string{"10_FirstStage", "20_GeneratedStage"} {
+		if err := os.MkdirAll(filepath.Join(transformDir, stage), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel)
+	orchestrator := &internalTransform.Orchestrator{
+		Log:          logger,
+		ExportDir:    exportDir,
+		TransformDir: transformDir,
+		PluginDir:    filepath.Join(root, "plugins"),
+		Overwrite:    true,
+	}
+	if err := orchestrator.RunMultiStage(internalTransform.StageSelector{}); err != nil {
+		t.Fatalf("RunMultiStage: %v", err)
+	}
+
+	finalStageDir := filepath.Join(transformDir, "20_GeneratedStage")
+	metadata, err := file.ReadMetadata(filepath.Join(finalStageDir, file.MetadataFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata == nil || !reflect.DeepEqual(metadata.AutomaticallyCollectedCRDs, []string{"gadgets.example.com"}) {
+		t.Fatalf("final stage metadata = %#v, want gadgets.example.com", metadata)
+	}
+
+	generatedDir := filepath.Join(finalStageDir, "new")
+	if err := os.MkdirAll(generatedDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	generatedGadget := `apiVersion: example.com/v1
+kind: Gadget
+metadata:
+  name: generated
+  namespace: source
+`
+	if err := os.WriteFile(filepath.Join(generatedDir, "gadget.yaml"), []byte(generatedGadget), 0600); err != nil {
+		t.Fatal(err)
+	}
+	kustomizationPath := filepath.Join(finalStageDir, "kustomization.yaml")
+	kustomization, err := os.ReadFile(kustomizationPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(kustomizationPath, append(kustomization, []byte("- new/gadget.yaml\n")...), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	applier := &KustomizeApplier{Log: logger, TransformDir: transformDir, OutputDir: outputDir}
+	if err := applier.ApplyMultiStage(internalTransform.StageSelector{}); err != nil {
+		t.Fatalf("ApplyMultiStage: %v", err)
+	}
+
+	output, err := os.ReadFile(filepath.Join(outputDir, "output.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(output), "gadgets.example.com") {
+		t.Error("output.yaml omitted the CRD required by a later-stage generated Gadget")
+	}
+	if !strings.Contains(string(output), "name: generated") {
+		t.Error("output.yaml omitted the later-stage generated Gadget")
+	}
+	crdPath := filepath.Join(outputDir, "resources", "_cluster", "CustomResourceDefinition_apiextensions.k8s.io_v1_clusterscoped_gadgets.example.com.yaml")
+	if _, err := os.Stat(crdPath); err != nil {
+		t.Errorf("split resources omitted required CRD: %v", err)
 	}
 }

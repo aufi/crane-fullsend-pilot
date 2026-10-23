@@ -25,12 +25,17 @@ transform/
 │   │   └── service-myapp-default.yaml
 │   ├── output/                       # Materialized output (next stage input)
 │   ├── kustomization.yaml            # Generated Kustomize file
-│   └── .crane-metadata.json          # Stage metadata with content hashes
+│   └── .crane-metadata.json          # Export provenance for CRD reconciliation
 ├── 20_OpenshiftPlugin/
 │   └── ...
 └── 30_ImagestreamPlugin/
     └── ...
 ```
+
+`.crane-metadata.json` is Crane provenance metadata, not a Kubernetes manifest.
+It records CRDs collected automatically during export and is propagated to every
+stage. During final apply, Crane uses it to remove an automatically collected
+CRD only when no matching custom resources remain.
 
 ### Resource Grouping
 
