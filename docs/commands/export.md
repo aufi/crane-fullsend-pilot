@@ -47,6 +47,7 @@ Standard kubeconfig flags (`--kubeconfig`, `--context`, `--cluster`, `--as`, `--
 
 ```text
 export/
+├── .crane-metadata.json
 ├── resources/
 │   └── <namespace>/
 │       ├── Deployment_apps_v1_<ns>_<name>.yaml
@@ -62,6 +63,10 @@ export/
 ```
 
 Resource filenames follow the format: `Kind_group_version_namespace_name.yaml`
+
+`.crane-metadata.json` is Crane provenance metadata, not a Kubernetes manifest.
+It records CRDs collected automatically for exported custom resources so later
+transform and apply stages can reconcile CRDs that are no longer needed.
 
 ### Admin vs Non-Admin Migration
 

@@ -115,6 +115,16 @@ func (k *KustomizeApplier) ApplyMultiStage(stageSelector internalTransform.Stage
 		k.Log.Debugf("Kustomize build failed for stage %s: %v", lastStage.DirName, err)
 		return fmt.Errorf("kustomize build failed for stage %s: %w", lastStage.DirName, err)
 	}
+	metadata, err := file.ReadMetadata(filepath.Join(lastStage.Path, file.MetadataFilename))
+	if err != nil {
+		return fmt.Errorf("read metadata for stage %s: %w", lastStage.DirName, err)
+	}
+	if metadata != nil && len(metadata.AutomaticallyCollectedCRDs) > 0 {
+		output, err = k.filterUnneededAutomaticallyCollectedCRDs(output, metadata.AutomaticallyCollectedCRDs)
+		if err != nil {
+			return fmt.Errorf("reconcile automatically collected CRDs for stage %s: %w", lastStage.DirName, err)
+		}
+	}
 
 	// Filter cluster-scoped resources if requested
 	if k.SkipClusterScoped {
@@ -141,12 +151,108 @@ func (k *KustomizeApplier) ApplyMultiStage(stageSelector internalTransform.Stage
 
 	// Split into individual resource files organized by namespace
 	// This creates output/resources/<namespace>/<Kind>_<namespace>_<name>.yaml
+	if err := os.RemoveAll(filepath.Join(k.OutputDir, "resources")); err != nil {
+		return fmt.Errorf("clear output resource files: %w", err)
+	}
 	if err := k.splitMultiDocYAMLToFiles(output); err != nil {
 		k.Log.Debugf("Failed to split output into individual files: %v", err)
 		return fmt.Errorf("failed to split output into individual files: %w", err)
 	}
 
 	return nil
+}
+
+func (k *KustomizeApplier) filterUnneededAutomaticallyCollectedCRDs(yamlData []byte, automaticallyCollectedCRDs []string) ([]byte, error) {
+	automaticallyCollected := make(map[string]struct{}, len(automaticallyCollectedCRDs))
+	for _, name := range automaticallyCollectedCRDs {
+		automaticallyCollected[name] = struct{}{}
+	}
+
+	resources, err := decodeResources(yamlData)
+	if err != nil {
+		return nil, err
+	}
+
+	required := make(map[string]struct{})
+	for _, resource := range resources {
+		if resource.GetKind() == "CustomResourceDefinition" {
+			continue
+		}
+		gvk := resource.GroupVersionKind()
+		required[gvk.Group+"/"+gvk.Kind] = struct{}{}
+	}
+
+	filtered := make([]unstructured.Unstructured, 0, len(resources))
+	for _, resource := range resources {
+		if _, isAutomaticallyCollected := automaticallyCollected[resource.GetName()]; isAutomaticallyCollected && resource.GetKind() == "CustomResourceDefinition" {
+			group, found, err := unstructured.NestedString(resource.Object, "spec", "group")
+			if err != nil {
+				return nil, fmt.Errorf("read spec.group for automatically collected CRD %q: %w", resource.GetName(), err)
+			}
+			kind, kindFound, err := unstructured.NestedString(resource.Object, "spec", "names", "kind")
+			if err != nil {
+				return nil, fmt.Errorf("read spec.names.kind for automatically collected CRD %q: %w", resource.GetName(), err)
+			}
+			if found && kindFound {
+				if _, needed := required[group+"/"+kind]; !needed {
+					k.Log.Infof("Excluding automatically collected CustomResourceDefinition %q: no %s/%s resources remain", resource.GetName(), group, kind)
+					continue
+				}
+			} else {
+				k.Log.Warnf("Retaining automatically collected CustomResourceDefinition %q: missing spec.group or spec.names.kind", resource.GetName())
+			}
+		}
+		filtered = append(filtered, resource)
+	}
+
+	return encodeResources(filtered)
+}
+
+func decodeResources(yamlData []byte) ([]unstructured.Unstructured, error) {
+	decoder := yamlv3.NewDecoder(strings.NewReader(string(yamlData)))
+	var resources []unstructured.Unstructured
+	for {
+		var doc interface{}
+		err := decoder.Decode(&doc)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("decode YAML document: %w", err)
+		}
+		if doc == nil {
+			continue
+		}
+		docBytes, err := yamlv3.Marshal(doc)
+		if err != nil {
+			return nil, fmt.Errorf("marshal YAML document: %w", err)
+		}
+		jsonData, err := yaml.YAMLToJSON(docBytes)
+		if err != nil {
+			return nil, fmt.Errorf("convert YAML document to JSON: %w", err)
+		}
+		resource := unstructured.Unstructured{}
+		if err := resource.UnmarshalJSON(jsonData); err != nil {
+			return nil, fmt.Errorf("unmarshal Kubernetes resource: %w", err)
+		}
+		resources = append(resources, resource)
+	}
+	return resources, nil
+}
+
+func encodeResources(resources []unstructured.Unstructured) ([]byte, error) {
+	var result bytes.Buffer
+	for i, resource := range resources {
+		if i > 0 {
+			result.WriteString("---\n")
+		}
+		encoded, err := yamlv3.Marshal(resource.Object)
+		if err != nil {
+			return nil, fmt.Errorf("marshal Kubernetes resource %s/%s: %w", resource.GetKind(), resource.GetName(), err)
+		}
+		result.Write(encoded)
+	}
+	return result.Bytes(), nil
 }
 
 // runKustomizeBuild runs embedded kustomize on a directory

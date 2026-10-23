@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/konveyor/crane/internal/file"
 	"github.com/konveyor/crane/internal/flags"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -307,6 +308,7 @@ func (o *ExportOptions) Run() error {
 
 	crdResources, crdErrs := collectRelatedCRDs(requestTimeout, resources, dynamicClient, log, o.crdSkipGroups, o.crdIncludeGroups)
 	resourceErrs = append(resourceErrs, crdErrs...)
+	automaticallyCollectedCRDs := automaticallyCollectedCRDNames(resources, crdResources)
 	resources = append(resources, crdResources...)
 
 	// Check if any resource errors are timeout errors and fail fast with exit code 1
@@ -330,6 +332,12 @@ func (o *ExportOptions) Run() error {
 	crdCount := len(crdResources)
 	if crdCount > 0 {
 		log.Infof("Collected %d CRDs for referenced custom resources", crdCount)
+	}
+	if err := file.WriteMetadata(filepath.Join(o.exportDir, file.MetadataFilename), &file.Metadata{
+		AutomaticallyCollectedCRDs: automaticallyCollectedCRDs,
+	}); err != nil {
+		log.Errorf("Error writing export metadata: %v", err)
+		return err
 	}
 
 	writeResourcesErrors := writeResources(resources, clusterResourceDir, resourceDir, log)
