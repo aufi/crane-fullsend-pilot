@@ -91,7 +91,8 @@ E2E tests live in `e2e-tests/`:
 e2e-tests/
 ├── framework/              # Test framework (app deployment, kubectl wrappers, pipeline)
 ├── tests/                  # Test cases (mtc_XXX_*.go)
-├── golden-manifests-ocp/   # Expected output fixtures
+├── golden-manifests/       # Default expected output fixtures
+├── golden-manifests-ocp/   # Optional OpenShift-specific fixture overrides
 └── utils/                  # Helper utilities
 ```
 
@@ -121,9 +122,15 @@ Retained composite actions do not provide live E2E coverage by themselves.
 
 ### Golden Manifests
 
-The `golden-manifests-ocp/` directory contains expected export and output for
-known applications (e.g., `redis`, `simple-nginx-nopv`). E2E tests compare
-actual output against these fixtures.
+The `golden-manifests/` directory contains the default expected export and
+output for known applications (e.g., `redis`, `simple-nginx-nopv`). E2E tests
+that use the default fixture helper, including Tier 1 scenarios, resolve this
+tree.
+
+The optional `golden-manifests-ocp/` directory provides OpenShift-specific
+overrides. When an OpenShift-aware scenario finds a matching override it uses
+that directory; otherwise it falls back to `golden-manifests/`. E2E tests
+compare actual output against the selected fixtures.
 
 ### Writing E2E Tests
 
