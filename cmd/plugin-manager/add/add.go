@@ -260,8 +260,11 @@ func downloadBinary(pluginDir string, filename string, url string, log *logrus.L
 		log.Errorf("Failed to inspect plugin directory %s: %v", pluginDir, err)
 		return err
 	}
-	if dirInfo.Mode().Perm()&0022 != 0 {
-		dirMode := dirInfo.Mode().Perm() &^ 0022
+	// Drop group and other write. Perm() omits setuid, setgid, and sticky, so
+	// building the new mode from Perm() alone would clear those on Chmod.
+	if perm := dirInfo.Mode().Perm(); perm&0022 != 0 {
+		const specialBits = os.ModeSetuid | os.ModeSetgid | os.ModeSticky
+		dirMode := (dirInfo.Mode() & specialBits) | (perm &^ 0022)
 		if err := os.Chmod(pluginDir, dirMode); err != nil {
 			log.Errorf("Failed to secure plugin directory %s: %v", pluginDir, err)
 			return err

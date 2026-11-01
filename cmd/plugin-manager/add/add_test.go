@@ -68,3 +68,38 @@ func TestDownloadBinarySecuresExistingPluginDirectory(t *testing.T) {
 		t.Errorf("plugin directory mode = %04o, want %04o", got, want)
 	}
 }
+
+func TestDownloadBinaryPreservesSpecialDirectoryBits(t *testing.T) {
+	tempDir := t.TempDir()
+	source := filepath.Join(tempDir, "source")
+	if err := os.WriteFile(source, []byte("plugin"), 0600); err != nil {
+		t.Fatalf("failed to create source plugin: %v", err)
+	}
+
+	previousUmask := syscall.Umask(0)
+	t.Cleanup(func() { syscall.Umask(previousUmask) })
+
+	pluginDir := filepath.Join(tempDir, "plugins")
+	if err := os.Mkdir(pluginDir, 0777); err != nil {
+		t.Fatalf("failed to create plugin directory: %v", err)
+	}
+	// Mkdir does not apply setgid here, so set the special bits explicitly.
+	if err := os.Chmod(pluginDir, os.ModeSetgid|os.ModeSticky|0777); err != nil {
+		t.Fatalf("failed to set plugin directory mode: %v", err)
+	}
+
+	if err := downloadBinary(pluginDir, "example", source, logrus.New()); err != nil {
+		t.Fatalf("downloadBinary() error = %v", err)
+	}
+
+	dirInfo, err := os.Stat(pluginDir)
+	if err != nil {
+		t.Fatalf("failed to stat plugin directory: %v", err)
+	}
+	const keptBits = os.ModeSetuid | os.ModeSetgid | os.ModeSticky | os.ModePerm
+	got := dirInfo.Mode() & keptBits
+	want := os.ModeSetgid | os.ModeSticky | 0755
+	if got != want {
+		t.Errorf("plugin directory mode = %04o, want %04o", got, want)
+	}
+}
