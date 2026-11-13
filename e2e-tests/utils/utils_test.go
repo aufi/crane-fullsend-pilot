@@ -439,6 +439,34 @@ func TestHasFilesRecursively(t *testing.T) {
 			listingContains: []string{"report (no files).yaml"},
 		},
 		{
+			name: "file_under_directory_containing_no_files_marker",
+			build: func(t *testing.T) string {
+				dir := t.TempDir()
+				nested := filepath.Join(dir, "nested (no files)")
+				if err := os.MkdirAll(nested, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(nested, "inside.yaml"), []byte("x"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return dir
+			},
+			wantFiles:       true,
+			listingContains: []string{filepath.Join("nested (no files)", "inside.yaml")},
+		},
+		{
+			name: "only_empty_nested_directories",
+			build: func(t *testing.T) string {
+				dir := t.TempDir()
+				if err := os.MkdirAll(filepath.Join(dir, "a", "b", "c"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				return dir
+			},
+			wantFiles:       false,
+			listingContains: []string{"(no files)"},
+		},
+		{
 			name: "missing_directory_returns_error",
 			build: func(t *testing.T) string {
 				return filepath.Join(t.TempDir(), "missing")
