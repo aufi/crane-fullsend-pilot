@@ -32,6 +32,9 @@ type TransferPVCOptions struct {
 	// transfer coverage run in the same E2E invocation.
 	DisableCloudStorage bool
 	RsyncImage          string
+	// Verify enables checksum-based comparison in the rsync data copy so
+	// content differences are detected even when size and mtime match.
+	Verify bool
 }
 
 // ValidateOptions contains arguments for the crane validate command.
@@ -283,6 +286,9 @@ func buildTransferPVCArgs(opts TransferPVCOptions) []string {
 			args = append(args, "--ingress-class", opts.IngressClass)
 			args = append(args, "--subdomain", opts.Subdomain)
 		}
+	}
+	if opts.Verify {
+		args = append(args, "--verify")
 	}
 	return args
 }

@@ -35,6 +35,18 @@ func TestBuildTransferPVCArgs(t *testing.T) {
 			want: []string{"transfer-pvc", "--source-context", "src", "--destination-context", "tgt", "--pvc-name", "data", "--pvc-namespace", "source:target", "--source-image", "registry.example/rsync:test", "--destination-image", "registry.example/rsync:test", "--endpoint", "route"},
 		},
 		{
+			name: "verify flag applies to direct transfer",
+			opts: TransferPVCOptions{
+				SourceContext:   "src",
+				TargetContext:   "tgt",
+				PVCName:         "data",
+				PVCNamespaceMap: "source:target",
+				Endpoint:        "route",
+				Verify:          true,
+			},
+			want: []string{"transfer-pvc", "--source-context", "src", "--destination-context", "tgt", "--pvc-name", "data", "--pvc-namespace", "source:target", "--endpoint", "route", "--verify"},
+		},
+		{
 			name: "custom image applies to indirect transfer",
 			opts: TransferPVCOptions{
 				SourceContext:      "src",
