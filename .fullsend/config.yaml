@@ -1,33 +1,81 @@
-# fullsend per-repo configuration
-# https://github.com/fullsend-ai/fullsend
-#
-# This file configures fullsend for per-repo installation mode.
-# See https://fullsend.sh/docs/guides/infrastructure/layered-config-reference
+# Fullsend v0.55.0 pilot. Enable additional agents after the EnMaaS smoke test.
 version: "1"
-runtime: codex
-tracker: github
+forge: github
+runtime: pi
 roles:
-    - triage
-    - review
-    - coder
-    - fix
+  - triage
+  - review
+  - coder
+  - fix
+
+tracker:
+  github:
+    allowed_targets:
+      repos:
+        - fullsend-ai/fullsend
+
+inference:
+  gateway:
+    url: https://api.enmaas.devshift.net
+    auth: api-key
+    models:
+      rits/deepseek-ai/DeepSeek-V4.1-Flash-1017:
+        api: openai-completions
+
 agents:
-    - name: triage
-      runtime: codex
-      model: openai/gpt-5.6-terra
-    - name: review
-      runtime: codex
-      model: openai/gpt-5.6-terra
-    - name: code
-      runtime: codex
-      model: openai/gpt-5.6-terra
-    - name: fix
-      runtime: codex
-      model: openai/gpt-5.6-terra
+  - name: triage
+    source: harness/triage.yaml
+    enabled: true
+    runtime: pi
+    model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    effort: high
+    trigger: >-
+      event.transition.kind == "comment_added"
+      && has(event.transition.comment.command)
+      && event.transition.comment.command == "/fs-triage"
+      && event.actor.kind == "human"
+  - name: review
+    source: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/review.yaml#sha256=99998321e3b7aba7f0c1cc68b50f383436147fb6ee59e506f6d156445308bf9d
+    ref: v0.55.0
+    enabled: false
+    runtime: pi
+    model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    effort: high
+    subagents:
+      default: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      challenger: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      correctness: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      cross-repo-contracts: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      docs-currency: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      intent-coherence: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      risk-assessment: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      security: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      security-triage: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      style-conventions: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+      user-experience: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+  - name: code
+    source: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/code.yaml#sha256=198b71dd86ef14c5244578ebaffb862b4c62de1c513ece01c0fb51fef1630f37
+    ref: v0.55.0
+    enabled: false
+    runtime: pi
+    model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    effort: high
+    subagents:
+      default: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+  - name: fix
+    source: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/fix.yaml#sha256=3f24d7199b3da8a17971a3b5713c599f7aba40f9f5acfec044896bec9636b8f7
+    ref: v0.55.0
+    enabled: false
+    runtime: pi
+    model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    effort: high
+    subagents:
+      default: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
+  - name: retro
+    enabled: false
+  - name: prioritize
+    enabled: false
+
 allowed_remote_resources:
-    - https://raw.githubusercontent.com/fullsend-ai/fullsend/
-    - https://raw.githubusercontent.com/fullsend-ai/agents/
-create_issues:
-    allow_targets:
-        repos:
-            - fullsend-ai/fullsend
+  - https://raw.githubusercontent.com/fullsend-ai/fullsend/
+  - https://raw.githubusercontent.com/fullsend-ai/agents/
