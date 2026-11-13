@@ -17,9 +17,9 @@ Report real Crane bugs and features upstream at
 ## Pilot scope
 
 The EnMaaS migration and staged activation are documented in
-[FULLSEND_ENMAAS.md](FULLSEND_ENMAAS.md). Initially only manual triage is enabled.
-Review, code, and fix are configured for DeepSeek but disabled until their
-controlled validation steps are ready.
+[FULLSEND_ENMAAS.md](FULLSEND_ENMAAS.md). Manual triage, review, code, and fix
+are enabled on DeepSeek. Triage-to-code promotion remains off; retro and
+prioritize remain disabled. Review, code, and fix use their fleet triggers.
 
 Agent roles, security boundaries, validation steps, acceptance criteria, and
 rollback are defined in the runbook that governs this pilot:
