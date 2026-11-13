@@ -379,11 +379,24 @@ func MD5SumFile(k KubectlRunner, namespace, pod, path string) (string, error) {
 	return parts[0], nil
 }
 
-// FileSizeAndMtime returns "<size> <mtime-epoch>" for a file inside a pod.
-func FileSizeAndMtime(k KubectlRunner, namespace, pod, filePath string) (string, error) {
+// FileSizeAndMtime returns the size in bytes and the modification time (Unix
+// epoch seconds) of a file inside a pod.
+func FileSizeAndMtime(k KubectlRunner, namespace, pod, filePath string) (int64, int64, error) {
 	out, err := k.Run("exec", pod, "-n", namespace, "--", "stat", "-c", "%s %Y", filePath)
 	if err != nil {
-		return "", fmt.Errorf("stat %q in pod %q (namespace %q): %w", filePath, pod, namespace, err)
+		return 0, 0, fmt.Errorf("stat %q in pod %q (namespace %q): %w", filePath, pod, namespace, err)
 	}
-	return strings.TrimSpace(StripKubectlWarnings(out)), nil
+	fields := strings.Fields(strings.TrimSpace(StripKubectlWarnings(out)))
+	if len(fields) != 2 {
+		return 0, 0, fmt.Errorf("unexpected stat output %q for %q in pod %q (namespace %q)", out, filePath, pod, namespace)
+	}
+	size, err := strconv.ParseInt(fields[0], 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing size from stat %q in pod %q (namespace %q): %w", filePath, pod, namespace, err)
+	}
+	mtime, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing mtime from stat %q in pod %q (namespace %q): %w", filePath, pod, namespace, err)
+	}
+	return size, mtime, nil
 }

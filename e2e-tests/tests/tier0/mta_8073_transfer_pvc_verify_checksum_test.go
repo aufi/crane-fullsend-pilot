@@ -3,7 +3,6 @@ package e2e
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/konveyor/crane/e2e-tests/config"
 	. "github.com/konveyor/crane/e2e-tests/framework"
@@ -118,11 +117,11 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srcOtherMD5).NotTo(BeEmpty())
 
-			srcStat, err := FileSizeAndMtime(kubectlSrc, namespace, seedPodName, "/data/"+sameSizeFile)
+			srcSize, srcMtime, err := FileSizeAndMtime(kubectlSrc, namespace, seedPodName, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.Fields(srcStat)[0]).To(Equal(fmt.Sprintf("%d", len(checksumVerifySourceContent))),
+			Expect(srcSize).To(Equal(int64(len(checksumVerifySourceContent))),
 				"source file should have the seeded size")
-			log.Printf("source %s stat (size mtime): %s, md5: %s", sameSizeFile, srcStat, srcSameSizeMD5)
+			log.Printf("source %s stat (size %d mtime %d), md5: %s", sameSizeFile, srcSize, srcMtime, srcSameSizeMD5)
 
 			By("Release the source PVC before transferring")
 			_, err = kubectlSrc.Run("delete", "pod", seedPodName, "-n", namespace, "--wait=true", "--timeout=120s")
@@ -162,9 +161,10 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tgtOtherMD5).To(Equal(srcOtherMD5), "first transfer should copy identical content")
 
-			tgtStat, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+sameSizeFile)
+			tgtSize, tgtMtime, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(tgtStat).To(Equal(srcStat), "first transfer should preserve the source size and mtime")
+			Expect(tgtSize).To(Equal(srcSize), "first transfer should preserve the source size")
+			Expect(tgtMtime).To(Equal(srcMtime), "first transfer should preserve the source mtime")
 
 			By("Corrupt a destination file while preserving its size and modification time")
 			tamperCmd := fmt.Sprintf(
@@ -176,34 +176,29 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			_, err = kubectlTgt.Run("exec", verifyPodName, "-n", namespace, "--", "/bin/sh", "-c", tamperCmd)
 			Expect(err).NotTo(HaveOccurred())
 
-			tamperedStat, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+sameSizeFile)
+			tamperedSize, tamperedMtime, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(tamperedStat).To(Equal(srcStat),
-				"tampered destination file must keep the source size and mtime")
+			Expect(tamperedSize).To(Equal(srcSize),
+				"tampered destination file must keep the source size")
+			Expect(tamperedMtime).To(Equal(srcMtime),
+				"tampered destination file must keep the source mtime")
 			tamperedMD5, err := MD5SumFile(kubectlTgt, namespace, verifyPodName, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tamperedMD5).NotTo(Equal(srcSameSizeMD5),
 				"tampered destination file must differ from the source content")
 
-			tamperedOtherStat, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+otherFile)
+			tamperedOtherSize, _, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+otherFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.Fields(tamperedOtherStat)[0]).To(Equal(fmt.Sprintf("%d", len(checksumVerifyOtherTampered))),
+			Expect(tamperedOtherSize).To(Equal(int64(len(checksumVerifyOtherTampered))),
 				"control file should be corrupted to a different size")
 
 			By("Release the destination PVC before re-running the verified transfer")
 			_, err = kubectlTgt.Run("delete", "pod", verifyPodName, "-n", namespace, "--wait=true", "--timeout=120s")
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Wait for the first transfer's pods to release the destination PVC")
-			Eventually(func() (string, error) {
-				pods, err := kubectlTgt.Run("get", "pods", "-n", namespace,
-					"-l", "app.kubernetes.io/component=transfer-pvc", "-o", "name")
-				if err != nil {
-					return "", err
-				}
-				return strings.TrimSpace(StripKubectlWarnings(pods)), nil
-			}, "2m", "5s").Should(BeEmpty(),
-				"transfer-pvc pods must be gone before re-running so the destination PVC is released")
+			By("Wait for the first transfer's helpers to release the destination PVC")
+			AssertNoTransferPVCLeftovers(kubectlSrc, []string{namespace}, pvcName)
+			AssertNoTransferPVCLeftovers(kubectlTgt, []string{namespace}, pvcName)
 
 			By("Re-run transfer-pvc with --verify and confirm it repairs the tampered data")
 			output, err = runner.TransferPVCWithOutput(transferOpts)
@@ -232,9 +227,9 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 					"destination file %s should match the source after --verify transfer", file.name)
 			}
 
-			finalStat, err := FileSizeAndMtime(kubectlTgt, namespace, reverifyPod, "/data/"+sameSizeFile)
+			finalSize, finalMtime, err := FileSizeAndMtime(kubectlTgt, namespace, reverifyPod, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(finalStat).To(Equal(srcStat),
-				"verified transfer should preserve the source size and mtime")
+			Expect(finalSize).To(Equal(srcSize), "verified transfer should preserve the source size")
+			Expect(finalMtime).To(Equal(srcMtime), "verified transfer should preserve the source mtime")
 		})
 })

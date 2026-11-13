@@ -72,19 +72,34 @@ func TestBuildTransferPVCArgs(t *testing.T) {
 }
 
 func TestTransferPVCWithOutputRejectsVerifyWithCloudStorage(t *testing.T) {
-	runner := CraneRunner{Bin: "crane-that-must-not-run"}
-	_, err := runner.TransferPVCWithOutput(TransferPVCOptions{
-		SourceContext:   "src",
-		TargetContext:   "tgt",
-		PVCName:         "data",
-		PVCNamespaceMap: "source:target",
-		CloudStorage:    "remote:bucket",
-		Verify:          true,
-	})
-	if err == nil {
-		t.Fatal("TransferPVCWithOutput() accepted --verify with cloud storage")
+	tests := []struct {
+		name string
+		opts TransferPVCOptions
+	}{
+		{
+			name: "cloud storage set",
+			opts: TransferPVCOptions{CloudStorage: "remote:bucket", Verify: true},
+		},
+		{
+			name: "explicit cloud storage with inheritance disabled",
+			opts: TransferPVCOptions{CloudStorage: "remote:bucket", DisableCloudStorage: true, Verify: true},
+		},
 	}
-	if !strings.Contains(err.Error(), "DisableCloudStorage") {
-		t.Fatalf("TransferPVCWithOutput() error = %v, want it to mention DisableCloudStorage", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := CraneRunner{Bin: "crane-that-must-not-run"}
+			opts := tt.opts
+			opts.SourceContext = "src"
+			opts.TargetContext = "tgt"
+			opts.PVCName = "data"
+			opts.PVCNamespaceMap = "source:target"
+			_, err := runner.TransferPVCWithOutput(opts)
+			if err == nil {
+				t.Fatal("TransferPVCWithOutput() accepted --verify with cloud storage")
+			}
+			if !strings.Contains(err.Error(), "DisableCloudStorage") {
+				t.Fatalf("TransferPVCWithOutput() error = %v, want it to mention DisableCloudStorage", err)
+			}
+		})
 	}
 }

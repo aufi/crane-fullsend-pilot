@@ -232,7 +232,7 @@ func (c CraneRunner) TransferPVCWithOutput(opts TransferPVCOptions) (string, err
 		}
 	}
 	if opts.Verify && opts.CloudStorage != "" {
-		return "", fmt.Errorf("transfer-pvc --verify is only supported for direct transfers; set DisableCloudStorage to use checksum verification")
+		return "", fmt.Errorf("transfer-pvc --verify is only supported for direct transfers; clear CloudStorage/--cloud-storage, or set DisableCloudStorage to avoid inheriting the suite-wide cloud storage setting")
 	}
 	if opts.RsyncImage == "" {
 		opts.RsyncImage = config.RsyncImage
