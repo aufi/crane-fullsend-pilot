@@ -1,4 +1,4 @@
-# Fullsend v0.55.0 pilot. Enable additional agents after the EnMaaS smoke test.
+# Fullsend v0.55.0 pilot using EnMaaS DeepSeek after the triage smoke test.
 version: "1"
 forge: github
 runtime: pi
@@ -37,7 +37,7 @@ agents:
   - name: review
     source: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/review.yaml#sha256=99998321e3b7aba7f0c1cc68b50f383436147fb6ee59e506f6d156445308bf9d
     ref: v0.55.0
-    enabled: false
+    enabled: true
     runtime: pi
     model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
     effort: high
@@ -56,7 +56,7 @@ agents:
   - name: code
     source: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/code.yaml#sha256=198b71dd86ef14c5244578ebaffb862b4c62de1c513ece01c0fb51fef1630f37
     ref: v0.55.0
-    enabled: false
+    enabled: true
     runtime: pi
     model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
     effort: high
@@ -65,7 +65,7 @@ agents:
   - name: fix
     source: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/fix.yaml#sha256=3f24d7199b3da8a17971a3b5713c599f7aba40f9f5acfec044896bec9636b8f7
     ref: v0.55.0
-    enabled: false
+    enabled: true
     runtime: pi
     model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
     effort: high
