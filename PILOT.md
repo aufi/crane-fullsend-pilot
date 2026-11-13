@@ -1,7 +1,7 @@
 # Fullsend pilot sandbox
 
 This repository is a **throwaway sandbox** for evaluating
-[Fullsend](https://github.com/fullsend-ai/fullsend) `v0.43.0` against a realistic
+[Fullsend](https://github.com/fullsend-ai/fullsend) `v0.55.0` against a realistic
 Go codebase. It is a content copy of [migtools/crane](https://github.com/migtools/crane)
 taken on 2026-09-21, not a fork and not a maintained downstream.
 
@@ -16,9 +16,15 @@ Report real Crane bugs and features upstream at
 
 ## Pilot scope
 
+The EnMaaS migration and staged activation are documented in
+[FULLSEND_ENMAAS.md](FULLSEND_ENMAAS.md). Initially only manual triage is enabled.
+Review, code, and fix are configured for DeepSeek but disabled until their
+controlled validation steps are ready.
+
 Agent roles, security boundaries, validation steps, acceptance criteria, and
 rollback are defined in the runbook that governs this pilot:
-`fullsend-ai/FULLSEND_V0.43.0_RUNBOOK.md` in
+`fullsend-ai/FULLSEND_ENMAAS_PLAN.md` and the historical
+`fullsend-ai/FULLSEND_V0.44.0_RUNBOOK.md` in
 <https://github.com/aufi/move-crane>.
 
 Rules that apply to every agent run here:

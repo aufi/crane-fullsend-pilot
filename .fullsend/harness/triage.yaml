@@ -1,0 +1,14 @@
+# Keep the initial EnMaaS validation manual and prevent triage-to-code promotion.
+base: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/triage.yaml#sha256=d56f5ed8d45c5a8aee6031f519b3c7b1c048a3dc14e67870fbd0029d63d935b4
+
+trigger: >-
+  event.transition.kind == "comment_added"
+  && has(event.transition.comment.command)
+  && event.transition.comment.command == "/fs-triage"
+  && event.actor.kind == "human"
+
+env:
+  runner:
+    TRIAGE_AUTO_CODE: "off"
+  sandbox:
+    TRIAGE_AUTO_CODE: "off"
