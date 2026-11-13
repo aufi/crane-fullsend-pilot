@@ -42,6 +42,13 @@ review-triggered fixes. Retro and prioritize are explicitly disabled. Each of
 the ten review personas in this fleet revision has an explicit gateway model
 override, because `subagents.default` does not replace a persona's own model.
 
+The local review harness sets `REVIEW_FINDING_SEVERITY_THRESHOLD: "medium"`
+in both runner and sandbox environments. Review publishes medium, high, and
+critical findings; info and low findings are filtered. When the post-script
+filters findings, its review notice reports the count withheld. The persona
+roster is unchanged, so this setting narrows reported findings rather than
+the scope of review analysis.
+
 Configuration is loaded from the trusted base branch. The original migration
 was merged as PR #16. Further activation changes take effect after human review
 and merge. Automatic triage-to-code promotion remains off.
