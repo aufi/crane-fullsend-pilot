@@ -54,9 +54,31 @@ Tests are organized into two tiers under `tests/`:
 
 Each tier is a separate Go package with its own `e2e_suite_test.go` entrypoint.
 Tests are also tagged with a matching Ginkgo label (`Label("tier0")` or
-`Label("tier1")`) so they can be filtered independently. This pilot does not
-schedule either tier; use the explicit commands below when live prerequisites
-are available.
+`Label("tier1")`) so they can be filtered independently.
+
+## CI execution
+
+The pilot uses upstream Crane's E2E workflows:
+
+- `e2e-pr-tester.yaml` runs direct migration tests on pull requests to `main`
+  and `release-0.*`.
+- `e2e-indirect-pr-tester.yaml` runs the same selection with MinIO-backed
+  indirect transfers.
+- Changes limited to scenario test files run those files with Ginkgo's
+  `--focus-file`. Framework, configuration, test data, suite bootstrap, or
+  application changes run tier0 and tier1 in parallel. CI/docs-only changes
+  are skipped according to the upstream path rules.
+- `run-e2e-tier0-tests.yml` and `run-e2e-tier1-tests.yml` run on pushes to
+  `main`, nightly at 02:00 and 04:00 UTC respectively, and via manual dispatch.
+
+Each live job creates source and target Minikube clusters, sets up non-admin
+users, installs `k8sdeploy` and Ginkgo, and builds Crane. The direct tier action
+and focused jobs also build the OpenShift transform plugin. Indirect jobs
+configure a disposable MinIO instance. No external cluster credentials are
+required.
+
+Existing pull requests need a new `pull_request` event, such as a new commit or
+closing and reopening the PR, after the workflows are merged to `main`.
 
 ## How the Suite Works
 
@@ -91,8 +113,8 @@ functions or connecting to a cluster:
 make test-e2e-compile
 ```
 
-This is separate from live execution. The pilot checkout has no active live
-E2E workflow; retained composite actions do not themselves execute tests.
+This checks compilation only. Live CI execution is configured separately in
+the workflows listed above.
 
 To run scenarios against real clusters, use the Ginkgo commands below and
 provide the required `k8sdeploy`, `kubectl`, kube contexts, and test images.

@@ -39,9 +39,13 @@ Rules that apply to every agent run here:
 
 ## Differences from upstream
 
-- Inherited GitHub Actions workflows were pruned to `go.yml`, `lint.yml`, and
-  `pr-title-check.yml`. E2E, nightly, release, Slack, cherry-pick, and issue
-  automation workflows were removed so pilot runs stay cheap and readable.
+- E2E workflows follow upstream Crane: PRs run direct and MinIO-backed indirect
+  migration tests, selecting touched test files or both tiers based on the diff.
+  Tier0 and tier1 also run on pushes to `main`, nightly, and manually.
+  Each live job provisions disposable source and target Minikube clusters on
+  its GitHub-hosted runner, without external cluster credentials.
+- Release, release-branch nightly, Slack, cherry-pick, and upstream issue
+  automation workflows remain removed from the pilot.
 - `.github/CODEOWNERS` was added to protect the pilot's own configuration.
 - This file and a banner in `AGENTS.md` were added.
 

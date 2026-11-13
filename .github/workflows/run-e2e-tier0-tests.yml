@@ -1,0 +1,19 @@
+name: Test Tier0
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-e2e:
+    uses: ./.github/workflows/reusable-e2e-tier-tests.yml
+    with:
+      checkout_ref: ${{ github.ref_name }}
+      label_filter: tier0
