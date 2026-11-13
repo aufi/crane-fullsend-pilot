@@ -378,3 +378,12 @@ func MD5SumFile(k KubectlRunner, namespace, pod, path string) (string, error) {
 	parts := strings.Fields(output)
 	return parts[0], nil
 }
+
+// FileSizeAndMtime returns "<size> <mtime-epoch>" for a file inside a pod.
+func FileSizeAndMtime(k KubectlRunner, namespace, pod, filePath string) (string, error) {
+	out, err := k.Run("exec", pod, "-n", namespace, "--", "stat", "-c", "%s %Y", filePath)
+	if err != nil {
+		return "", fmt.Errorf("stat %q in pod %q (namespace %q): %w", filePath, pod, namespace, err)
+	}
+	return strings.TrimSpace(StripKubectlWarnings(out)), nil
+}

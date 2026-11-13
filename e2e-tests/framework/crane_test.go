@@ -2,6 +2,7 @@ package framework
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -67,5 +68,23 @@ func TestBuildTransferPVCArgs(t *testing.T) {
 				t.Fatalf("buildTransferPVCArgs() = %#v, want %#v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestTransferPVCWithOutputRejectsVerifyWithCloudStorage(t *testing.T) {
+	runner := CraneRunner{Bin: "crane-that-must-not-run"}
+	_, err := runner.TransferPVCWithOutput(TransferPVCOptions{
+		SourceContext:   "src",
+		TargetContext:   "tgt",
+		PVCName:         "data",
+		PVCNamespaceMap: "source:target",
+		CloudStorage:    "remote:bucket",
+		Verify:          true,
+	})
+	if err == nil {
+		t.Fatal("TransferPVCWithOutput() accepted --verify with cloud storage")
+	}
+	if !strings.Contains(err.Error(), "DisableCloudStorage") {
+		t.Fatalf("TransferPVCWithOutput() error = %v, want it to mention DisableCloudStorage", err)
 	}
 }

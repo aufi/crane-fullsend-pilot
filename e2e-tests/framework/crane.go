@@ -33,7 +33,9 @@ type TransferPVCOptions struct {
 	DisableCloudStorage bool
 	RsyncImage          string
 	// Verify enables checksum-based comparison in the rsync data copy so
-	// content differences are detected even when size and mtime match.
+	// content differences are detected even when size and mtime match. It
+	// only applies to direct rsync transfers; callers must also set
+	// DisableCloudStorage because the indirect path ignores the flag.
 	Verify bool
 }
 
@@ -228,6 +230,9 @@ func (c CraneRunner) TransferPVCWithOutput(opts TransferPVCOptions) (string, err
 		} else if config.RcloneConfigFile != "" {
 			opts.RcloneConfigFile = config.RcloneConfigFile
 		}
+	}
+	if opts.Verify && opts.CloudStorage != "" {
+		return "", fmt.Errorf("transfer-pvc --verify is only supported for direct transfers; set DisableCloudStorage to use checksum verification")
 	}
 	if opts.RsyncImage == "" {
 		opts.RsyncImage = config.RsyncImage

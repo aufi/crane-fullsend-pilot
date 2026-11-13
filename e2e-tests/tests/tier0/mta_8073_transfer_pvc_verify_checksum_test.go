@@ -41,9 +41,9 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 				otherFile     = "other.txt"
 			)
 
-			Expect(len(checksumVerifyTamperedContent)).To(Equal(len(checksumVerifySourceContent)),
+			Expect(checksumVerifyTamperedContent).To(HaveLen(len(checksumVerifySourceContent)),
 				"tampered payload must keep the source file size")
-			Expect(len(checksumVerifyOtherTampered)).NotTo(Equal(len(checksumVerifyOtherContent)),
+			Expect(checksumVerifyOtherTampered).NotTo(HaveLen(len(checksumVerifyOtherContent)),
 				"the control payload must use a different size")
 
 			scenario := NewMigrationScenario(
@@ -118,7 +118,7 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(srcOtherMD5).NotTo(BeEmpty())
 
-			srcStat, err := podFileSizeAndMtime(kubectlSrc, namespace, seedPodName, sameSizeFile)
+			srcStat, err := FileSizeAndMtime(kubectlSrc, namespace, seedPodName, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.Fields(srcStat)[0]).To(Equal(fmt.Sprintf("%d", len(checksumVerifySourceContent))),
 				"source file should have the seeded size")
@@ -162,7 +162,7 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tgtOtherMD5).To(Equal(srcOtherMD5), "first transfer should copy identical content")
 
-			tgtStat, err := podFileSizeAndMtime(kubectlTgt, namespace, verifyPodName, sameSizeFile)
+			tgtStat, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tgtStat).To(Equal(srcStat), "first transfer should preserve the source size and mtime")
 
@@ -176,7 +176,7 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			_, err = kubectlTgt.Run("exec", verifyPodName, "-n", namespace, "--", "/bin/sh", "-c", tamperCmd)
 			Expect(err).NotTo(HaveOccurred())
 
-			tamperedStat, err := podFileSizeAndMtime(kubectlTgt, namespace, verifyPodName, sameSizeFile)
+			tamperedStat, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tamperedStat).To(Equal(srcStat),
 				"tampered destination file must keep the source size and mtime")
@@ -185,7 +185,7 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			Expect(tamperedMD5).NotTo(Equal(srcSameSizeMD5),
 				"tampered destination file must differ from the source content")
 
-			tamperedOtherStat, err := podFileSizeAndMtime(kubectlTgt, namespace, verifyPodName, otherFile)
+			tamperedOtherStat, err := FileSizeAndMtime(kubectlTgt, namespace, verifyPodName, "/data/"+otherFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.Fields(tamperedOtherStat)[0]).To(Equal(fmt.Sprintf("%d", len(checksumVerifyOtherTampered))),
 				"control file should be corrupted to a different size")
@@ -193,6 +193,17 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 			By("Release the destination PVC before re-running the verified transfer")
 			_, err = kubectlTgt.Run("delete", "pod", verifyPodName, "-n", namespace, "--wait=true", "--timeout=120s")
 			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for the first transfer's pods to release the destination PVC")
+			Eventually(func() (string, error) {
+				pods, err := kubectlTgt.Run("get", "pods", "-n", namespace,
+					"-l", "app.kubernetes.io/component=transfer-pvc", "-o", "name")
+				if err != nil {
+					return "", err
+				}
+				return strings.TrimSpace(StripKubectlWarnings(pods)), nil
+			}, "2m", "5s").Should(BeEmpty(),
+				"transfer-pvc pods must be gone before re-running so the destination PVC is released")
 
 			By("Re-run transfer-pvc with --verify and confirm it repairs the tampered data")
 			output, err = runner.TransferPVCWithOutput(transferOpts)
@@ -221,18 +232,9 @@ var _ = Describe("transfer-pvc checksum verification", func() {
 					"destination file %s should match the source after --verify transfer", file.name)
 			}
 
-			finalStat, err := podFileSizeAndMtime(kubectlTgt, namespace, reverifyPod, sameSizeFile)
+			finalStat, err := FileSizeAndMtime(kubectlTgt, namespace, reverifyPod, "/data/"+sameSizeFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(finalStat).To(Equal(srcStat),
 				"verified transfer should preserve the source size and mtime")
 		})
 })
-
-// podFileSizeAndMtime returns "<size> <mtime-epoch>" for a file inside a pod.
-func podFileSizeAndMtime(k KubectlRunner, namespace, pod, file string) (string, error) {
-	out, err := k.Run("exec", pod, "-n", namespace, "--", "stat", "-c", "%s %Y", "/data/"+file)
-	if err != nil {
-		return "", fmt.Errorf("stat %q in pod %q (namespace %q): %w", file, pod, namespace, err)
-	}
-	return strings.TrimSpace(StripKubectlWarnings(out)), nil
-}
