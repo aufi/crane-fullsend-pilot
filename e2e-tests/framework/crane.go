@@ -32,6 +32,11 @@ type TransferPVCOptions struct {
 	// transfer coverage run in the same E2E invocation.
 	DisableCloudStorage bool
 	RsyncImage          string
+	// Verify enables checksum-based comparison in the rsync data copy so
+	// content differences are detected even when size and mtime match. It
+	// only applies to direct rsync transfers; callers must also set
+	// DisableCloudStorage because the indirect path ignores the flag.
+	Verify bool
 }
 
 // ValidateOptions contains arguments for the crane validate command.
@@ -226,6 +231,9 @@ func (c CraneRunner) TransferPVCWithOutput(opts TransferPVCOptions) (string, err
 			opts.RcloneConfigFile = config.RcloneConfigFile
 		}
 	}
+	if opts.Verify && opts.CloudStorage != "" {
+		return "", fmt.Errorf("transfer-pvc --verify is only supported for direct transfers; clear CloudStorage/--cloud-storage, or set DisableCloudStorage to avoid inheriting the suite-wide cloud storage setting")
+	}
 	if opts.RsyncImage == "" {
 		opts.RsyncImage = config.RsyncImage
 	}
@@ -283,6 +291,9 @@ func buildTransferPVCArgs(opts TransferPVCOptions) []string {
 			args = append(args, "--ingress-class", opts.IngressClass)
 			args = append(args, "--subdomain", opts.Subdomain)
 		}
+	}
+	if opts.Verify {
+		args = append(args, "--verify")
 	}
 	return args
 }

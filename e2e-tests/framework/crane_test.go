@@ -2,6 +2,7 @@ package framework
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -35,6 +36,18 @@ func TestBuildTransferPVCArgs(t *testing.T) {
 			want: []string{"transfer-pvc", "--source-context", "src", "--destination-context", "tgt", "--pvc-name", "data", "--pvc-namespace", "source:target", "--source-image", "registry.example/rsync:test", "--destination-image", "registry.example/rsync:test", "--endpoint", "route"},
 		},
 		{
+			name: "verify flag applies to direct transfer",
+			opts: TransferPVCOptions{
+				SourceContext:   "src",
+				TargetContext:   "tgt",
+				PVCName:         "data",
+				PVCNamespaceMap: "source:target",
+				Endpoint:        "route",
+				Verify:          true,
+			},
+			want: []string{"transfer-pvc", "--source-context", "src", "--destination-context", "tgt", "--pvc-name", "data", "--pvc-namespace", "source:target", "--endpoint", "route", "--verify"},
+		},
+		{
 			name: "custom image applies to indirect transfer",
 			opts: TransferPVCOptions{
 				SourceContext:      "src",
@@ -53,6 +66,39 @@ func TestBuildTransferPVCArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := buildTransferPVCArgs(tt.opts); !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("buildTransferPVCArgs() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTransferPVCWithOutputRejectsVerifyWithCloudStorage(t *testing.T) {
+	tests := []struct {
+		name string
+		opts TransferPVCOptions
+	}{
+		{
+			name: "cloud storage set",
+			opts: TransferPVCOptions{CloudStorage: "remote:bucket", Verify: true},
+		},
+		{
+			name: "explicit cloud storage with inheritance disabled",
+			opts: TransferPVCOptions{CloudStorage: "remote:bucket", DisableCloudStorage: true, Verify: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := CraneRunner{Bin: "crane-that-must-not-run"}
+			opts := tt.opts
+			opts.SourceContext = "src"
+			opts.TargetContext = "tgt"
+			opts.PVCName = "data"
+			opts.PVCNamespaceMap = "source:target"
+			_, err := runner.TransferPVCWithOutput(opts)
+			if err == nil {
+				t.Fatal("TransferPVCWithOutput() accepted --verify with cloud storage")
+			}
+			if !strings.Contains(err.Error(), "DisableCloudStorage") {
+				t.Fatalf("TransferPVCWithOutput() error = %v, want it to mention DisableCloudStorage", err)
 			}
 		})
 	}
