@@ -1,0 +1,8 @@
+# Apply the same minimum finding severity in the agent and post-script.
+base: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/review.yaml#sha256=99998321e3b7aba7f0c1cc68b50f383436147fb6ee59e506f6d156445308bf9d
+
+env:
+  runner:
+    REVIEW_FINDING_SEVERITY_THRESHOLD: "medium"
+  sandbox:
+    REVIEW_FINDING_SEVERITY_THRESHOLD: "medium"

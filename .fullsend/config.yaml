@@ -35,8 +35,7 @@ agents:
       && event.transition.comment.command == "/fs-triage"
       && event.actor.kind == "human"
   - name: review
-    source: https://raw.githubusercontent.com/fullsend-ai/agents/3b40ac718d29c3190b71e68447b9f4e938f19974/harness/review.yaml#sha256=99998321e3b7aba7f0c1cc68b50f383436147fb6ee59e506f6d156445308bf9d
-    ref: v0.55.0
+    source: harness/review.yaml
     enabled: true
     runtime: pi
     model: gateway/rits/deepseek-ai/DeepSeek-V4.1-Flash-1017
