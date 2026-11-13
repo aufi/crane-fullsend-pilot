@@ -30,8 +30,14 @@ func ListFilesRecursively(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return formatFileListing(dir, files), nil
+}
+
+// formatFileListing renders the human-readable, newline-delimited listing of
+// files discovered under dir. It returns "  (no files)" when files is empty.
+func formatFileListing(dir string, files []string) string {
 	if len(files) == 0 {
-		return "  (no files)", nil
+		return "  (no files)"
 	}
 
 	var b strings.Builder
@@ -43,7 +49,7 @@ func ListFilesRecursively(dir string) (string, error) {
 		b.WriteString(fmt.Sprintf("  - %s\n", rel))
 	}
 
-	return strings.TrimRight(b.String(), "\n"), nil
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // ListFilesRecursivelyAsList walks dir recursively and returns sorted relative
@@ -72,13 +78,15 @@ func ListFilesRecursivelyAsList(dir string) ([]string, error) {
 }
 
 // HasFilesRecursively reports whether a directory contains any files.
+// File presence is derived from the discovered entries rather than from the
+// rendered listing, whose entries may legitimately contain text that looks like
+// the empty-directory marker.
 func HasFilesRecursively(dir string) (bool, string, error) {
-	files, err := ListFilesRecursively(dir)
+	files, err := ListFilesRecursivelyAsList(dir)
 	if err != nil {
 		return false, "", err
 	}
-	hasFiles := !strings.Contains(files, "(no files)")
-	return hasFiles, files, nil
+	return len(files) > 0, formatFileListing(dir, files), nil
 }
 
 // ReadTestdataFile reads a file from e2e-tests/testdata relative to this package.
