@@ -399,16 +399,20 @@ func TestListFilesRecursively(t *testing.T) {
 func TestHasFilesRecursively(t *testing.T) {
 	// Confirm boolean/file-listing behavior for empty vs populated directories.
 	cases := []struct {
-		name      string
-		build     func(t *testing.T) string
-		wantFiles bool
+		name            string
+		build           func(t *testing.T) string
+		wantFiles       bool
+		wantErr         bool
+		errContains     []string
+		listingContains []string
 	}{
 		{
 			name: "no_files",
 			build: func(t *testing.T) string {
 				return t.TempDir()
 			},
-			wantFiles: false,
+			wantFiles:       false,
+			listingContains: []string{"(no files)"},
 		},
 		{
 			name: "has_files",
@@ -419,7 +423,28 @@ func TestHasFilesRecursively(t *testing.T) {
 				}
 				return dir
 			},
-			wantFiles: true,
+			wantFiles:       true,
+			listingContains: []string{"x.yaml"},
+		},
+		{
+			name: "filename_contains_no_files_marker",
+			build: func(t *testing.T) string {
+				dir := t.TempDir()
+				if err := os.WriteFile(filepath.Join(dir, "report (no files).yaml"), []byte("x"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return dir
+			},
+			wantFiles:       true,
+			listingContains: []string{"report (no files).yaml"},
+		},
+		{
+			name: "missing_directory_returns_error",
+			build: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "missing")
+			},
+			wantErr:     true,
+			errContains: []string{"missing"},
 		},
 	}
 
@@ -428,6 +453,17 @@ func TestHasFilesRecursively(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := tc.build(t)
 			got, listing, err := HasFilesRecursively(dir)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("HasFilesRecursively(%q): expected error, got nil", dir)
+				}
+				for _, s := range tc.errContains {
+					if !strings.Contains(err.Error(), s) {
+						t.Fatalf("error %q does not contain %q", err.Error(), s)
+					}
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("HasFilesRecursively(%q): %v", dir, err)
 			}
@@ -436,6 +472,11 @@ func TestHasFilesRecursively(t *testing.T) {
 			}
 			if listing == "" {
 				t.Fatal("expected non-empty listing text")
+			}
+			for _, s := range tc.listingContains {
+				if !strings.Contains(listing, s) {
+					t.Fatalf("listing %q does not contain %q", listing, s)
+				}
 			}
 		})
 	}
